@@ -233,6 +233,8 @@
     <string name="always">Always</string>
     <string name="asrkb_aidl_voice_input">BiBi Keyboard AIDL voice input</string>
     <string name="asrkb_aidl_voice_input_summary">Enable voice recognition via BiBi Keyboard (AIDL). Enable "External IME link (AIDL)" in BiBi Keyboard first.</string>
+    <string name="asrkb_duck_media_on_record">Pause other media while recording</string>
+    <string name="asrkb_duck_media_on_record_summary">While BiBi Keyboard voice input is recording, ask other apps to temporarily lower their volume or pause. The result depends on the system and the media app.</string>
     <string name="asrkb_aidl_voice_toolbar_button">Toolbar mic button</string>
     <string name="asrkb_aidl_voice_toolbar_button_summary">Show a mic button on the toolbar. Tap to start recording, tap again to stop and commit. If the setting does not take effect immediately after toggling the switch, switch to another theme in the keyboard style settings and then switch back to refresh the UI.</string>
     <string name="asrkb_err_service_not_found">BiBi Keyboard service not found (Pro/Open-source)</string>

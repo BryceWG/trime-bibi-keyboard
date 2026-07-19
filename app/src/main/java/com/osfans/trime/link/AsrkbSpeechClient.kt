@@ -19,6 +19,7 @@ import android.os.Parcel
 import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
 import com.osfans.trime.R
+import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.util.toast
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ object AsrkbSpeechClient {
     private var ctxRef: TrimeInputMethodService? = null
     private var audioJob: Job? = null
     private var audioRecord: AudioRecord? = null
+    private var recordingAudioFocusController: AsrkbRecordingAudioFocusController? = null
     private var hasPcmFrame: Boolean = false
 
     fun startHoldSession(service: TrimeInputMethodService) {
@@ -91,7 +93,7 @@ object AsrkbSpeechClient {
                                         when (code) {
                                             CB_onState -> {
                                                 data.enforceInterface(DESCRIPTOR_CB)
-                                                val _sid = data.readInt()
+                                                data.readInt()
                                                 val s = data.readInt()
                                                 data.readString()
                                                 currentState = s
@@ -343,6 +345,8 @@ object AsrkbSpeechClient {
             return
         }
 
+        acquireRecordingAudioFocusIfEnabled(service)
+
         audioJob =
             service.lifecycleScope.launch(Dispatchers.IO) {
                 val sr = 16000
@@ -471,6 +475,33 @@ object AsrkbSpeechClient {
                 Timber.w(t, "AudioRecord release failed")
             }
             audioRecord = null
+        }
+
+        val focusController = recordingAudioFocusController
+        recordingAudioFocusController = null
+        focusController?.release()
+    }
+
+    private fun acquireRecordingAudioFocusIfEnabled(service: TrimeInputMethodService) {
+        val enabled =
+            AppPrefs.defaultInstance().general.asrkbDuckMediaOnRecordEnabled.getValue()
+        if (!enabled) {
+            Timber.d("ASRKB media avoidance disabled; skip audio focus request")
+            return
+        }
+
+        val executor = ContextCompat.getMainExecutor(service)
+        val controller =
+            AsrkbRecordingAudioFocusController(service) { loss ->
+                Timber.w("ASRKB recording audio focus lost: $loss")
+                executor.execute {
+                    if (holding) stopHoldSession()
+                }
+            }
+        recordingAudioFocusController = controller
+        if (!controller.acquire()) {
+            recordingAudioFocusController = null
+            Timber.w("ASRKB recording continues without audio focus")
         }
     }
 

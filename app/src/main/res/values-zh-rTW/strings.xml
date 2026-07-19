@@ -233,6 +233,8 @@
     <string name="always">始終</string>
     <string name="asrkb_aidl_voice_input">說點啥 AIDL 語音輸入</string>
     <string name="asrkb_aidl_voice_input_summary">啟用後可透過 AIDL 呼叫說點啥的語音識別；需在說點啥中開啟「允許外部輸入法聯動（AIDL）」。</string>
+    <string name="asrkb_duck_media_on_record">錄音時暫停其他媒體</string>
+    <string name="asrkb_duck_media_on_record_summary">使用說點啥語音輸入錄音時，要求其他應用程式暫時降低音量或暫停播放。實際效果取決於系統與播放應用程式。</string>
     <string name="asrkb_aidl_voice_toolbar_button">工具列麥克風按鈕</string>
     <string name="asrkb_aidl_voice_toolbar_button_summary">在工具列顯示麥克風按鈕：點按開始錄音，再次點按停止並上屏。開關切換後未立即生效，請在鍵盤樣式中切換到其他主題再切換回來以刷新 UI。</string>
     <string name="asrkb_err_service_not_found">未找到說點啥服務（Pro/開源）</string>

@@ -232,6 +232,8 @@
     <string name="always">始终</string>
     <string name="asrkb_aidl_voice_input">说点啥 AIDL 语音输入</string>
     <string name="asrkb_aidl_voice_input_summary">启用后可通过 AIDL 调用说点啥的语音识别；需在说点啥中开启“允许外部输入法联动（AIDL）”。</string>
+    <string name="asrkb_duck_media_on_record">录音时暂停其他媒体</string>
+    <string name="asrkb_duck_media_on_record_summary">使用说点啥语音输入录音时，请求其他应用暂时降低音量或暂停播放。实际效果取决于系统和播放应用。</string>
     <string name="asrkb_aidl_voice_toolbar_button">工具栏麦克风按钮</string>
     <string name="asrkb_aidl_voice_toolbar_button_summary">在工具栏显示麦克风按钮：点按开始录音，再次点按停止并上屏。开关切换后如未立即生效，请在键盘样式中切换到其他主题再切换回来以刷新 UI。</string>
     <string name="asrkb_err_service_not_found">未找到说点啥服务（Pro/开源）</string>

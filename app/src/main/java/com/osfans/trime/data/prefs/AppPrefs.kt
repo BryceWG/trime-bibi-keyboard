@@ -95,6 +95,7 @@ class AppPrefs(
             const val ASCII_SWITCH_TIPS = "ascii_switch_tips"
             const val INLINE_SUGGESTIONS = "inline_suggestions"
             const val ASRKB_AIDL_VOICE_INPUT = "asrkb_aidl_voice_input"
+            const val ASRKB_DUCK_MEDIA_ON_RECORD = "asrkb_duck_media_on_record"
             const val ASRKB_AIDL_VOICE_TOOLBAR_BUTTON = "asrkb_aidl_voice_toolbar_button"
             const val PREFERRED_VOICE_INPUT = "preferred_voice_input"
             const val TEST_INPUT_VISIBLE = "test_input_visible"
@@ -109,6 +110,13 @@ class AppPrefs(
             ASRKB_AIDL_VOICE_INPUT,
             false,
             R.string.asrkb_aidl_voice_input_summary,
+        )
+        val asrkbDuckMediaOnRecordEnabled = switch(
+            R.string.asrkb_duck_media_on_record,
+            ASRKB_DUCK_MEDIA_ON_RECORD,
+            true,
+            R.string.asrkb_duck_media_on_record_summary,
+            enableUiOn = { asrkbAidlVoiceInputEnabled.getValue() },
         )
         val asrkbAidlVoiceToolbarButtonEnabled = switch(
             R.string.asrkb_aidl_voice_toolbar_button,
