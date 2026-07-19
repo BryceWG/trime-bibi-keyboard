@@ -72,6 +72,8 @@ interface RimeApi {
 
     suspend fun clearComposition()
 
+    suspend fun getRawInput(): String
+
     suspend fun setRuntimeOption(
         option: String,
         value: Boolean,
@@ -82,5 +84,5 @@ interface RimeApi {
     suspend fun getCandidates(
         startIndex: Int,
         limit: Int,
-    ): Array<CandidateItem>
+    ): Array<CandidateProto>
 }

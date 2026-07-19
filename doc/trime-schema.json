@@ -242,9 +242,9 @@
           "type": "boolean",
           "description": "按鍵糾錯"
         },
-        "reset_ascii_mode": {
+        "reset_ascii_mode_on_focus_change": {
           "type": "boolean",
-          "description": "顯示鍵盤時重置爲中文狀態"
+          "description": "焦点变更弹起输入法软键盘时，重置 ascii_mode"
         },
         "round_corner": {
           "type": "number",
@@ -398,6 +398,18 @@
           "type": "number",
           "minimum": 0,
           "maximum": 48,
+          "default": 0
+        },
+        "border": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24,
+          "default": 0
+        },
+        "shadow": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 64,
           "default": 0
         },
         "alpha": {

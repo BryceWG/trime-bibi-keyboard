@@ -6,19 +6,16 @@
 package com.osfans.trime.data.theme.model
 
 import android.os.Parcelable
-import com.charleskorn.kaml.YamlList
-import com.charleskorn.kaml.YamlMap
-import com.charleskorn.kaml.YamlNode
-import com.charleskorn.kaml.YamlScalar
-import com.charleskorn.kaml.yamlList
-import com.charleskorn.kaml.yamlScalar
 import com.osfans.trime.ime.symbol.LiquidData
-import com.osfans.trime.util.getEnum
-import com.osfans.trime.util.getFloat
-import com.osfans.trime.util.getInt
-import com.osfans.trime.util.getString
-import com.osfans.trime.util.getStringList
 import com.osfans.trime.util.splitWithSurrogates
+import com.osfans.trime.util.yaml.Node
+import com.osfans.trime.util.yaml.enum
+import com.osfans.trime.util.yaml.float
+import com.osfans.trime.util.yaml.get
+import com.osfans.trime.util.yaml.int
+import com.osfans.trime.util.yaml.mapping
+import com.osfans.trime.util.yaml.sequence
+import com.osfans.trime.util.yaml.string
 import kotlinx.parcelize.Parcelize
 import timber.log.Timber
 
@@ -60,69 +57,72 @@ data class LiquidKeyboard(
     }
 
     companion object {
-        fun decode(node: YamlMap?): LiquidKeyboard {
-            val keyBarNode = node?.get<YamlMap>("fixed_key_bar")
+        fun decode(node: Node.Mapping?): LiquidKeyboard {
+            val keyBarNode = node?.get("fixed_key_bar")?.mapping
             val keyBar = keyBarNode?.let {
-                val position = keyBarNode.getEnum("position", KeyBar.Position.BOTTOM)
-                val keys = keyBarNode.get<YamlList>("keys")?.items
-                    ?.map { it.yamlScalar.content } ?: emptyList()
+                val position = keyBarNode["position"]?.enum<KeyBar.Position>()
+                    ?: KeyBar.Position.BOTTOM
+                val keys = keyBarNode["keys"]?.sequence
+                    ?.mapNotNull { it.string } ?: emptyList()
                 KeyBar(position = position, keys = keys)
             } ?: KeyBar(emptyList(), KeyBar.Position.BOTTOM)
             val keyboards =
-                node?.getStringList("keyboards")?.mapNotNull decode@{ id ->
-                    try {
-                        val keyboardNode = node.get<YamlMap>(id)
-                        val type = keyboardNode?.getEnum<LiquidData.Type>("type")
-                            ?: return@decode null
-                        val name = keyboardNode.getString("name", id)
-                        val keysNode = keyboardNode.get<YamlNode>("keys")
-                        val keys = arrayListOf<KeyItem>()
-                        if (keysNode is YamlList) {
-                            keysNode.yamlList.items.forEach { item ->
-                                if (item is YamlMap) {
-                                    val map =
-                                        item.entries.entries.associate {
-                                            it.key.content to it.value.yamlScalar.content
+                node?.get("keyboards")?.sequence?.asSequence()
+                    ?.mapNotNull { it.string }
+                    ?.mapNotNull decode@{ id ->
+                        try {
+                            val keyboardNode = node[id]?.mapping
+                            val type = keyboardNode?.get("type")?.enum<LiquidData.Type>()
+                                ?: return@decode null
+                            val name = keyboardNode["name"]?.string ?: id
+                            val keysNode = keyboardNode["keys"]
+                            val keys = arrayListOf<KeyItem>()
+                            if (keysNode is Node.Sequence) {
+                                keysNode.forEach { item ->
+                                    if (item is Node.Mapping) {
+                                        val map =
+                                            item.entries.associate {
+                                                it.key.string!! to it.value.string!!
+                                            }
+                                        if (map.containsKey("click")) {
+                                            val clickText = map["click"] ?: ""
+                                            val labelText = map["label"] ?: ""
+                                            keys.add(KeyItem(clickText, labelText))
+                                        } else {
+                                            map.forEach { keys.add(KeyItem(it.key, it.value)) }
                                         }
-                                    if (map.containsKey("click")) {
-                                        val clickText = map["click"] ?: ""
-                                        val labelText = map["label"] ?: ""
-                                        keys.add(KeyItem(clickText, labelText))
-                                    } else {
-                                        map.forEach { keys.add(KeyItem(it.key, it.value)) }
+                                    } else if (item is Node.Scalar) {
+                                        keys.add(KeyItem(item.string))
                                     }
-                                } else if (item is YamlScalar) {
-                                    keys.add(KeyItem(item.content))
+                                }
+                            } else {
+                                val value = keysNode?.string ?: ""
+                                if (type == LiquidData.Type.SINGLE) { // single data
+                                    value.splitWithSurrogates().forEach {
+                                        keys.add(KeyItem(it))
+                                    }
+                                } else { // simple keyboard data
+                                    value
+                                        .split("\n+".toRegex())
+                                        .filter { it.isNotEmpty() }
+                                        .forEach { keys.add(KeyItem(it)) }
                                 }
                             }
-                        } else {
-                            val value = keysNode?.yamlScalar?.content ?: ""
-                            if (type == LiquidData.Type.SINGLE) { // single data
-                                value.splitWithSurrogates().forEach {
-                                    keys.add(KeyItem(it))
-                                }
-                            } else { // simple keyboard data
-                                value
-                                    .split("\n+".toRegex())
-                                    .filter { it.isNotEmpty() }
-                                    .forEach { keys.add(KeyItem(it)) }
-                            }
+                            return@decode Keyboard(
+                                id = id,
+                                type = type,
+                                name = name,
+                                keys = keys,
+                            )
+                        } catch (e: Exception) {
+                            Timber.w(e, "Failed to decode LiquidKeyboard property 'keyboards'")
+                            return@decode null
                         }
-                        return@decode Keyboard(
-                            id = id,
-                            type = type,
-                            name = name,
-                            keys = keys,
-                        )
-                    } catch (e: Exception) {
-                        Timber.w(e, "Failed to decode LiquidKeyboard property 'keyboards'")
-                        return@decode null
-                    }
-                } ?: emptyList()
+                    }?.toList() ?: emptyList()
             return LiquidKeyboard(
-                singleWidth = node.getInt("single_width"),
-                keyHeight = node.getInt("key_height"),
-                marginX = node.getFloat("margin_x"),
+                singleWidth = node?.get("single_width")?.int ?: 0,
+                keyHeight = node?.get("key_height")?.int ?: 0,
+                marginX = node?.get("margin_x")?.float ?: 0f,
                 fixedKeyBar = keyBar,
                 keyboards = keyboards,
             )

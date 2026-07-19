@@ -131,6 +131,17 @@ constructor(
         return textBounds
     }
 
+    override fun onSizeChanged(
+        w: Int,
+        h: Int,
+        oldw: Int,
+        oldh: Int,
+    ) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        needsCalculateTransform = true
+        needsMeasureText = true
+    }
+
     override fun onLayout(
         changed: Boolean,
         left: Int,
@@ -138,7 +149,7 @@ constructor(
         right: Int,
         bottom: Int,
     ) {
-        if (needsCalculateTransform || changed) {
+        if (needsCalculateTransform) {
             calculateTransform(right - left, bottom - top)
             needsCalculateTransform = false
         }
@@ -152,39 +163,64 @@ constructor(
         val contentHeight = viewHeight - paddingTop - paddingBottom
         measureTextBounds()
         val textWidth = textBounds.width()
-        val leftAlignOffset = (paddingLeft - textBounds.left).toFloat()
-        val centerAlignOffset =
-            paddingLeft.toFloat() + (contentWidth - textWidth) / 2.0f - textBounds.left.toFloat()
+        val textHeight = textBounds.height()
+
+        // Prevent division by zero: if text dimensions are zero
+        if (textWidth == 0 || textHeight == 0) {
+            textScaleX = 1.0f
+            textScaleY = 1.0f
+            translateX = 0f
+            translateY = 0f
+            return
+        }
 
         @SuppressLint("RtlHardcoded")
         val shouldAlignLeft = gravity and Gravity.HORIZONTAL_GRAVITY_MASK == Gravity.LEFT
-        if (textWidth > contentWidth) {
+
+        if (textWidth > contentWidth || textHeight > contentHeight) {
             when (scaleMode) {
                 Mode.None -> {
                     textScaleX = 1.0f
                     textScaleY = 1.0f
-                    translateX = if (shouldAlignLeft) leftAlignOffset else centerAlignOffset
+                    translateX = calculateTranslateX(contentWidth, textWidth, 1.0f, shouldAlignLeft)
                 }
                 Mode.Horizontal -> {
                     textScaleX = contentWidth.toFloat() / textWidth.toFloat()
                     textScaleY = 1.0f
-                    translateX = leftAlignOffset
+                    translateX = calculateTranslateX(contentWidth, textWidth, textScaleX, shouldAlignLeft)
                 }
                 Mode.Proportional -> {
-                    val textScale = contentWidth.toFloat() / textWidth.toFloat()
+                    val textXScale = contentWidth.toFloat() / textWidth.toFloat()
+                    val textYScale = contentHeight.toFloat() / textHeight.toFloat()
+                    val textScale = min(textXScale, textYScale)
                     textScaleX = textScale
                     textScaleY = textScale
-                    translateX = leftAlignOffset
+                    translateX = calculateTranslateX(contentWidth, textWidth, textScaleX, shouldAlignLeft)
                 }
             }
         } else {
-            translateX = if (shouldAlignLeft) leftAlignOffset else centerAlignOffset
+            translateX = calculateTranslateX(contentWidth, textWidth, 1.0f, shouldAlignLeft)
             textScaleX = 1.0f
             textScaleY = 1.0f
         }
-        val fontHeight = (fontMetrics.bottom - fontMetrics.top) * textScaleY
-        val fontOffsetY = fontMetrics.top * textScaleY
+        val fontHeight = (fontMetrics.descent - fontMetrics.ascent) * textScaleY
+        val fontOffsetY = fontMetrics.ascent * textScaleY
         translateY = (contentHeight.toFloat() - fontHeight) / 2.0f - fontOffsetY + paddingTop
+    }
+
+    private fun calculateTranslateX(
+        contentWidth: Int,
+        textWidth: Int,
+        scaleX: Float,
+        shouldAlignLeft: Boolean,
+    ): Float {
+        val scaledTextWidth = textWidth * scaleX
+        val startX = if (shouldAlignLeft) {
+            paddingLeft.toFloat()
+        } else {
+            paddingLeft.toFloat() + (contentWidth - scaledTextWidth) / 2.0f
+        }
+        return (startX - textBounds.left) / scaleX
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -204,5 +240,13 @@ constructor(
 
     override fun getTextScaleX(): Float = textScaleX
 
-    override fun getBaseline(): Int = (-fontMetrics.top * textScaleY).roundToInt()
+    override fun getBaseline(): Int {
+        val baseline = -fontMetrics.top * textScaleY
+        // Prevent NaN or Infinity from causing crash
+        return if (baseline.isNaN() || baseline.isInfinite()) {
+            super.getBaseline()
+        } else {
+            baseline.roundToInt()
+        }
+    }
 }

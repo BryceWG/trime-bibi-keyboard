@@ -35,7 +35,6 @@ import com.osfans.trime.ime.candidates.unrolled.window.FlexboxUnrolledCandidateW
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.dependency.InputDependencyManager
 import com.osfans.trime.ime.keyboard.CommonKeyboardActionListener
-import com.osfans.trime.ime.keyboard.GestureFrame
 import com.osfans.trime.ime.keyboard.KeyBehavior
 import com.osfans.trime.ime.keyboard.KeyboardWindow
 import com.osfans.trime.ime.switches.SwitchOptionWindow
@@ -50,6 +49,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.kodein.di.instance
 import splitties.dimensions.dp
 import splitties.views.dsl.core.add
@@ -57,7 +57,6 @@ import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.matchParent
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class InputBarDelegate : InputBroadcastReceiver {
     private val di = InputDependencyManager.getInstance().di
@@ -149,7 +148,7 @@ class InputBarDelegate : InputBroadcastReceiver {
 
     private val alwaysUi: AlwaysUi by lazy {
         AlwaysUi(context, theme) { action ->
-            if (action != null) {
+            if (action.isNotEmpty()) {
                 commonKeyboardActionListener.listener.onAction(KeyActionManager.getAction(action))
             } else {
                 windowManager.attachWindow(SwitchOptionWindow())
@@ -163,10 +162,7 @@ class InputBarDelegate : InputBroadcastReceiver {
                 setOnClickListener {
                     val content = ClipboardHelper.lastBean?.text
                     content?.let { service.commitText(it) }
-                    clipboardTimeoutJob?.cancel()
-                    clipboardTimeoutJob = null
-                    isClipboardFresh = false
-                    evalAlwaysUiState()
+                    dismissClipboardSuggestion()
                 }
                 setOnLongClickListener {
                     ClipboardHelper.lastBean?.let {
@@ -203,11 +199,21 @@ class InputBarDelegate : InputBroadcastReceiver {
             }
             asrkbHoldingChangedListener = holdingListener
             AsrkbSpeechClient.onHoldingChanged = holdingListener
+            clipboardUi.dismiss.setOnClickListener {
+                dismissClipboardSuggestion()
+            }
         }
     }
 
+    private fun dismissClipboardSuggestion() {
+        clipboardTimeoutJob?.cancel()
+        clipboardTimeoutJob = null
+        isClipboardFresh = false
+        evalAlwaysUiState()
+    }
+
     private val candidateUi by lazy {
-        CandidateUi(context, candidate.view).apply {
+        CandidateUi(context, theme, candidate.view).apply {
             unrollButton.apply {
                 onSwipe = swipeDownHideKeyboardCallback
             }
@@ -281,6 +287,7 @@ class InputBarDelegate : InputBroadcastReceiver {
         val new = view.getChildAt(index)
         if (new != tabUi.root) {
             tabUi.setBackButtonOnClickListener { }
+            tabUi.setTitle("")
             tabUi.removeExternal()
         }
         view.displayedChild = index
@@ -330,6 +337,7 @@ class InputBarDelegate : InputBroadcastReceiver {
 
     override fun onWindowAttached(window: BoardWindow) {
         if (window is BoardWindow.BarBoardWindow) {
+            tabUi.setTitle(window.title)
             window.onCreateBarView()?.let { tabUi.addExternal(it, window.showTitle) }
             tabUi.setBackButtonOnClickListener {
                 windowManager.attachWindow(KeyboardWindow)
@@ -390,7 +398,7 @@ class InputBarDelegate : InputBroadcastReceiver {
     }
 
     @RequiresApi(Build.VERSION_CODES.R)
-    private suspend fun inflateInlineContentView(suggestion: InlineSuggestion): InlineContentView? = suspendCoroutine { c ->
+    private suspend fun inflateInlineContentView(suggestion: InlineSuggestion): InlineContentView? = suspendCancellableCoroutine { c ->
         // callback view might be null
         suggestion.inflate(context, suggestionSize, directExecutor) { v ->
             c.resume(v)

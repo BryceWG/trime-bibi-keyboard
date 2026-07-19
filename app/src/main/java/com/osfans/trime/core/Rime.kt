@@ -172,6 +172,10 @@ class Rime :
         emitResponse()
     }
 
+    override suspend fun getRawInput(): String = withRimeContext {
+        getRimeRawInput()
+    }
+
     override suspend fun setRuntimeOption(
         option: String,
         value: Boolean,
@@ -186,7 +190,7 @@ class Rime :
     override suspend fun getCandidates(
         startIndex: Int,
         limit: Int,
-    ): Array<CandidateItem> = withRimeContext {
+    ): Array<CandidateProto> = withRimeContext {
         getRimeCandidates(startIndex, limit)
     }
 
@@ -486,7 +490,7 @@ class Rime :
         external fun getRimeCandidates(
             startIndex: Int,
             limit: Int,
-        ): Array<CandidateItem>
+        ): Array<CandidateProto>
 
         @JvmStatic
         external fun getRimeBulkCandidates(): Array<Any>

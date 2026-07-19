@@ -6,7 +6,7 @@
 package com.osfans.trime.ime.clipboard
 
 import android.app.AlertDialog
-import android.content.Context
+import android.content.Intent
 import android.graphics.Typeface
 import android.view.View
 import androidx.lifecycle.lifecycleScope
@@ -22,6 +22,7 @@ import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.ime.core.TrimeInputMethodService
 import com.osfans.trime.ime.keyboard.KeyboardWindow
+import com.osfans.trime.ime.segments.SegmentsWindow
 import com.osfans.trime.ime.window.BoardWindow
 import com.osfans.trime.ime.window.BoardWindowManager
 import com.osfans.trime.ui.main.ClipEditActivity
@@ -36,7 +37,6 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
     private val service: TrimeInputMethodService by di.instance()
     private val windowManager: BoardWindowManager by di.instance()
     private val theme: Theme by di.instance()
-    override val showTitle: Boolean = false
 
     private lateinit var clipboardLayout: ClipboardLayout
     private lateinit var clipboardPagesAdapter: ClipboardPagesAdapter
@@ -75,6 +75,16 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
                 AppUtils.launchClipEdit(context, id, ClipEditActivity.FROM_CLIPBOARD)
             }
 
+            override fun onShare(bean: DatabaseBean) {
+                val text = bean.text ?: return
+                launchTextSharing(text)
+            }
+
+            override fun onSegment(bean: DatabaseBean) {
+                val text = bean.text ?: return
+                windowManager.attachWindow(SegmentsWindow(text))
+            }
+
             override fun onCollect(bean: DatabaseBean) {
                 service.lifecycleScope.launch {
                     CollectionHelper.addNewBean(bean.text ?: "")
@@ -101,6 +111,16 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
 
             override fun onEdit(id: Int) {
                 AppUtils.launchClipEdit(context, id, ClipEditActivity.FROM_COLLECTION)
+            }
+
+            override fun onShare(bean: DatabaseBean) {
+                val text = bean.text ?: return
+                launchTextSharing(text)
+            }
+
+            override fun onSegment(bean: DatabaseBean) {
+                val text = bean.text ?: return
+                windowManager.attachWindow(SegmentsWindow(text))
             }
 
             override fun onDelete(id: Int) {
@@ -142,9 +162,6 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
             adapter = clipboardPagesAdapter
         }
         titleUi.apply {
-            backButton.setOnClickListener {
-                windowManager.attachWindow(KeyboardWindow)
-            }
             tabLayout.onConfigureTab(viewPager) { tabUi, position ->
                 val label = when (position) {
                     0 -> R.string.clipboard
@@ -169,6 +186,17 @@ class ClipboardWindow(private val initialTab: Int = 0) : BoardWindow.BarBoardWin
                 }
             }
         }
+    }
+
+    private fun launchTextSharing(text: String) {
+        val target = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooser = Intent.createChooser(target, null).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        service.startActivity(chooser)
     }
 
     private fun promptDeleteAll(action: suspend () -> Unit) {

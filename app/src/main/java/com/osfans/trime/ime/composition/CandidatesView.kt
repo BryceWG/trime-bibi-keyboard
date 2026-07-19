@@ -100,6 +100,7 @@ class CandidatesView(
             ctx,
             theme,
             onCandidateClick = { index -> rime.launchOnReady { it.selectCandidate(index, global = false) } },
+            onCandidateAction = { index, text, view -> showCandidateActionMenu(index, text, view, global = false) },
             onPrevPage = { rime.launchOnReady { it.changeCandidatePage(true) } },
             onNextPage = { rime.launchOnReady { it.changeCandidatePage(false) } },
         )
@@ -221,10 +222,13 @@ class CandidatesView(
         background =
             ColorManager.getDecorDrawable(
                 colorKey = "text_back_color",
+                borderColorKey = "candidate_border_color",
+                borderPx = dp(theme.window.border),
                 cornerRadius = dp(theme.window.cornerRadius),
             )
         clipToOutline = true
         outlineProvider = ViewOutlineProvider.BACKGROUND
+        elevation = dp(theme.window.shadow)
         add(
             preeditUi.root,
             lParams(wrapContent, wrapContent) {

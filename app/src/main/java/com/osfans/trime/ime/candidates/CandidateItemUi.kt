@@ -1,6 +1,7 @@
-// SPDX-FileCopyrightText: 2024 Rime community
-//
-// SPDX-License-Identifier: GPL-3.0-or-later
+/*
+ * SPDX-FileCopyrightText: 2015 - 2026 Rime community
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
 
 package com.osfans.trime.ime.candidates
 
@@ -9,8 +10,8 @@ import android.content.Context
 import android.graphics.Color
 import android.view.View
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.view.isGone
-import com.osfans.trime.core.CandidateItem
+import androidx.core.view.isVisible
+import com.osfans.trime.core.CandidateProto
 import com.osfans.trime.data.theme.ColorManager
 import com.osfans.trime.data.theme.FontManager
 import com.osfans.trime.data.theme.Theme
@@ -21,7 +22,9 @@ import com.osfans.trime.util.roundedRippleDrawable
 import splitties.dimensions.dp
 import splitties.views.dsl.constraintlayout.baselineToBaselineOf
 import splitties.views.dsl.constraintlayout.bottomOfParent
+import splitties.views.dsl.constraintlayout.bottomToTopOf
 import splitties.views.dsl.constraintlayout.centerHorizontally
+import splitties.views.dsl.constraintlayout.centerInParent
 import splitties.views.dsl.constraintlayout.centerVertically
 import splitties.views.dsl.constraintlayout.constraintLayout
 import splitties.views.dsl.constraintlayout.endOfParent
@@ -35,10 +38,10 @@ import splitties.views.dsl.constraintlayout.topToBottomOf
 import splitties.views.dsl.core.Ui
 import splitties.views.dsl.core.add
 import splitties.views.dsl.core.lParams
-import splitties.views.dsl.core.matchParent
 import splitties.views.dsl.core.view
 import splitties.views.dsl.core.wrapContent
 import splitties.views.gravityCenter
+import splitties.views.horizontalPadding
 
 class CandidateItemUi(
     override val ctx: Context,
@@ -62,8 +65,6 @@ class CandidateItemUi(
     private val commentVerticalBias = theme.generalStyle.commentVerticalBias
     private val candidateTextVerticalBias = theme.generalStyle.candidateTextVerticalBias
 
-    private val commentHeight = ctx.dp(theme.generalStyle.commentHeight)
-
     private val text =
         view(::AutoScaleTextView) {
             id = View.generateViewId()
@@ -76,6 +77,7 @@ class CandidateItemUi(
 
     private val comment =
         view(::AutoScaleTextView) {
+            id = View.generateViewId()
             this.textSize = commentSize
             typeface = commentFont
             isSingleLine = true
@@ -84,7 +86,7 @@ class CandidateItemUi(
         }
 
     private val content = constraintLayout {
-
+        horizontalPadding = dp(theme.generalStyle.candidatePadding)
         when (commentPosition) {
             GeneralStyle.CommentPosition.RIGHT -> {
                 add(
@@ -92,14 +94,14 @@ class CandidateItemUi(
                     lParams(wrapContent, wrapContent) {
                         centerVertically()
                         startOfParent()
-                        horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED
                         endToStartOf(comment)
+                        horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED
                     },
                 )
                 add(
                     comment,
                     lParams(wrapContent, wrapContent) {
-                        startToEndOf(text)
+                        startToEndOf(text, ctx.dp(1))
                         endOfParent()
                         baselineToBaselineOf(text)
                         horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED
@@ -108,20 +110,20 @@ class CandidateItemUi(
             }
             GeneralStyle.CommentPosition.TOP -> {
                 add(
-                    comment,
-                    lParams(wrapContent, commentHeight) {
-                        startOfParent()
-                        endOfParent()
-                        topOfParent()
+                    text,
+                    lParams(wrapContent, matchConstraints) {
+                        centerHorizontally()
+                        bottomOfParent()
+                        topToBottomOf(comment)
                     },
                 )
                 add(
-                    text,
+                    comment,
                     lParams(wrapContent, matchConstraints) {
-                        topToBottomOf(comment)
-                        bottomOfParent()
-                        startOfParent()
-                        endOfParent()
+                        matchConstraintPercentHeight = 0.4f
+                        topOfParent()
+                        centerHorizontally()
+                        bottomToTopOf(text)
                     },
                 )
             }
@@ -129,18 +131,14 @@ class CandidateItemUi(
                 add(
                     text,
                     lParams(wrapContent, wrapContent) {
-                        topOfParent()
-                        bottomOfParent()
-                        centerHorizontally()
+                        centerInParent()
                         verticalBias = candidateTextVerticalBias
                     },
                 )
                 add(
                     comment,
                     lParams(wrapContent, wrapContent) {
-                        topOfParent()
-                        bottomOfParent()
-                        centerHorizontally()
+                        centerInParent()
                         verticalBias = commentVerticalBias
                     },
                 )
@@ -154,7 +152,7 @@ class CandidateItemUi(
          */
         add(
             content,
-            lParams(matchParent, matchParent) {
+            lParams(wrapContent, dp(theme.generalStyle.candidateViewHeight)) {
                 gravity = gravityCenter
             },
         )
@@ -162,7 +160,7 @@ class CandidateItemUi(
 
     @SuppressLint("UseKtx")
     fun update(
-        item: CandidateItem,
+        item: CandidateProto,
         highlighted: Boolean,
     ) {
         val tColor = if (highlighted) hlTextColor else textColor
@@ -170,11 +168,13 @@ class CandidateItemUi(
         val cornerRadius = ctx.dp(theme.generalStyle.candidateCornerRadius)
         val contentColor = if (highlighted) hlBackColor else Color.TRANSPARENT
 
+        content.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)
         text.text = item.text
         text.setTextColor(tColor)
-        comment.text = (if (commentPosition == GeneralStyle.CommentPosition.RIGHT) " " else "") + item.comment
+
+        val commentText = item.comment
+        comment.text = commentText
         comment.setTextColor(cColor)
-        comment.isGone = item.comment.isEmpty()
-        root.background = roundedRippleDrawable(hlBackColor, cornerRadius, contentColor)
+        comment.isVisible = commentText.isNotEmpty()
     }
 }

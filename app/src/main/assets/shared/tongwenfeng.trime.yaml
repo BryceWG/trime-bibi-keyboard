@@ -30,7 +30,7 @@ style:
   auto_caps: false #自動句首大寫:true|false
   candidate_font: han.ttf  #候选字体
   candidate_padding: 5  #候选项内边距
-  candidate_spacing: 0.5  #候选间距
+  candidate_spacing: 0.0  #候选分割线
   candidate_text_size: 18  #候选字号
   candidate_text_vertical_bias: 1.0 #候选文本垂直偏移位置（仅 overlay 模式使用，需要间隙空间足够，范围 0.0~1.0，0.0=top，0.5=center，1.0=bottom）
   candidate_view_height: 28 #候选区高度
@@ -57,7 +57,7 @@ style:
   popup_bottom_margin: 68 #按键提示底边距
   popup_key_height: 48 #按键提示内键高度
   popup_text_size: 23 #按键提示字号
-  reset_ascii_mode: false #显示键盘时重置为中文状态
+  reset_ascii_mode_on_focus_change: false #焦点变更弹起输入法软键盘时，重置 ascii_mode
   round_corner: *round1 #按键圆角半径
   shadow_radius: 0.0 #按键阴影半径
   symbol_font: symbol.ttf #符号字体
@@ -90,6 +90,8 @@ window:               # 候选窗口（悬浮窗）参数
     horizontal: 4         # 横向内边距（整数）
 #  min_width: 0          # 最小宽度（整数）
 #  corner_radius: 0      # 圆角半径（浮点）
+#  border: 0             # 边框宽度（整数）
+#  shadow: 0.0           # 阴影半径（浮点）
 #  alpha: 1              # 透明度（0-1，浮点）
   foreground:           # 前景样式
     label_font_size: 20   # 序号字体大小（浮点）
@@ -159,8 +161,8 @@ preset_color_schemes:
     candidate_text_color: *color1 #候选文本
     comment_text_color: *color3 #提示
     hilited_back_color: *color2 #高亮编码背景
-    hilited_candidate_back_color: *color2 #高亮候选背景
-    hilited_candidate_text_color: *color6 #高亮候选文本
+    hilited_candidate_back_color: *color6 #高亮候选背景
+    hilited_candidate_text_color: *color2 #高亮候选文本
     hilited_comment_text_color: *color1 #高亮提示
     hilited_key_back_color: *color6 #高亮按键背景
     hilited_key_symbol_color: *color2 #高亮按键符号

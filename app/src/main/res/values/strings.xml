@@ -37,6 +37,7 @@
     <string name="key_long_press_timeout">Long key press delay</string>
     <string name="key_repeat_interval">Key repeat interval</string>
     <string name="popup_on_key_press">Popup on key press</string>
+    <string name="expand_keypress_area_to_edge">Expand keypress area to edge</string>
     <string name="use_soft_cursor">Use soft cursor (^) in preedit</string>
     <string name="deploy">Deploy</string>
     <string name="sync_user_data_immediately">Sync user data immediately</string>
@@ -92,6 +93,24 @@
     <string name="quick_bar">Quick bar</string>
     <string name="copy_done">Copied to clipboard!</string>
     <string name="hook_shift_space">Ignore Shift locked for Space</string>
+    <string name="test_input">Test your input here</string>
+    <string name="input_type_text">Text</string>
+    <string name="input_type_number">Number</string>
+    <string name="input_type_phone">Phone</string>
+    <string name="input_type_email">Email</string>
+    <string name="input_type_url">URL</string>
+    <string name="input_type_password">Password</string>
+    <string name="test_input_number">Enter a number</string>
+    <string name="test_input_phone">Enter a phone number</string>
+    <string name="test_input_email">Enter an email address</string>
+    <string name="test_input_url">Enter a URL</string>
+    <string name="test_input_password">Enter a password</string>
+    <string name="test_input_panel_title">Test input</string>
+    <string name="show_test_input">Show test input</string>
+    <string name="hide_test_input">Hide test input</string>
+    <string name="hide_test_input_confirm">Hide the test input panel? You can restore it from the toolbar.</string>
+    <string name="collapse_test_input">Collapse test input</string>
+    <string name="expand_test_input">Expand test input</string>
     <string name="hook_shift_num">Ignore Shift locked for 0-9</string>
     <string name="hook_shift_symbol">Ignore Shift locked for Symbol keys</string>
     <string name="hook_shift_arrow">Keep Shift locked for Arrow keys</string>
@@ -229,4 +248,7 @@
     <string name="no_voice_input_installed">No voice input installed</string>
     <string name="inline_suggestions">Show inline autofill suggestions</string>
     <string name="update_config">Update config</string>
+    <string name="share">Share</string>
+    <string name="word_segment">Word segment</string>
+    <string name="star_success">Star success</string>
 </resources>

@@ -28,8 +28,8 @@ android {
         applicationId = "com.osfans.trime.bibi"
         minSdk = 21
         targetSdk = 35
-        versionCode = 20260601
-        versionName = "3.3.10"
+        versionCode = 20260901
+        versionName = "3.3.12"
 
         multiDexEnabled = true
         buildConfigField("String", "BUILDER", "\"${project.builder}\"")
@@ -178,10 +178,10 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.flexbox)
     implementation(libs.bravh)
-    implementation(libs.kaml)
     implementation(libs.timber)
     implementation(libs.xxpermissions)
     implementation(libs.kodein.di)
+    implementation(libs.snakeyaml)
     implementation(libs.splitties.bitflags)
     implementation(libs.splitties.systemservices)
     implementation(libs.splitties.views.dsl)

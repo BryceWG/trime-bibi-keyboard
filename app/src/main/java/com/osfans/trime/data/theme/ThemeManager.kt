@@ -6,12 +6,13 @@
 package com.osfans.trime.data.theme
 
 import android.content.res.Configuration
-import com.charleskorn.kaml.yamlMap
 import com.osfans.trime.core.Rime
 import com.osfans.trime.data.base.DataManager
 import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.ime.symbol.LiquidData
 import com.osfans.trime.util.WeakHashSet
+import com.osfans.trime.util.yaml.Yaml
+import com.osfans.trime.util.yaml.mapping
 import timber.log.Timber
 import java.io.File
 
@@ -52,17 +53,62 @@ object ThemeManager {
 
     val prefs = AppPrefs.defaultInstance().registerProvider(::ThemePrefs)
 
-    private fun getThemeById(id: String): Theme {
+    private data class ResolvedTheme(
+        val configId: String,
+        val theme: Theme,
+    )
+
+    private fun loadThemeByIdOrNull(id: String): Theme? {
         if (!Rime.deployRimeConfigFile(id, "config_version")) {
             Timber.w("Failed to deploy theme config file '$id.yaml'")
         }
         val file = File(DataManager.resolveDeployedResourcePath(id))
-        val node = ThemeFilesManager.yaml.parseToYamlNode(file.readText()).yamlMap
-        return Theme.decode(node)
+        if (!file.exists()) {
+            Timber.w("Theme file not found for '$id'")
+            return null
+        }
+        return try {
+            val node = Yaml.parseToYamlNode(file.readText())
+            val mapping = node.mapping
+            if (mapping == null) {
+                Timber.w("Failed to load theme '$id': YAML root is not a mapping")
+                null
+            } else {
+                Theme.decode(mapping)
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to load theme '$id'")
+            null
+        }
+    }
+
+    private fun getThemeById(id: String): ResolvedTheme {
+        loadThemeByIdOrNull(id)?.let { return ResolvedTheme(id, it) }
+
+        if (id != "trime") {
+            loadThemeByIdOrNull("trime")?.let {
+                Timber.w("Theme '$id' is unavailable, fallback to default theme 'trime'")
+                return ResolvedTheme("trime", it)
+            }
+        }
+
+        for (fallbackId in getAllThemes().map { it.configId }.distinct()) {
+            loadThemeByIdOrNull(fallbackId)?.let {
+                Timber.w("Theme '$id' is unavailable, fallback to available theme '$fallbackId'")
+                return ResolvedTheme(fallbackId, it)
+            }
+        }
+
+        error("No valid theme available")
     }
 
     private fun evaluateActiveTheme(): Theme {
-        val newTheme = getThemeById(prefs.selectedTheme.getValue())
+        val selectedThemeId = prefs.selectedTheme.getValue()
+        val resolvedTheme = getThemeById(selectedThemeId)
+        val newTheme = resolvedTheme.theme
+        if (resolvedTheme.configId != selectedThemeId) {
+            prefs.selectedTheme.setValue(resolvedTheme.configId)
+        }
         KeyActionManager.resetCache()
         FontManager.resetCache(newTheme)
         ColorManager.switchTheme(newTheme)
@@ -76,12 +122,13 @@ object ThemeManager {
     }
 
     fun selectTheme(configId: String) {
-        val theme = getThemeById(configId)
+        val resolvedTheme = getThemeById(configId)
+        val theme = resolvedTheme.theme
         KeyActionManager.resetCache()
         FontManager.resetCache(theme)
         ColorManager.switchTheme(theme)
         LiquidData.init(theme)
         activeTheme = theme
-        prefs.selectedTheme.setValue(configId)
+        prefs.selectedTheme.setValue(resolvedTheme.configId)
     }
 }

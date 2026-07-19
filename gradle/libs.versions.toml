@@ -32,12 +32,12 @@ androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version = "1.
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version = "2.9.1" }
 flexbox = { module = "com.google.android.flexbox:flexbox", version = "3.0.0" }
 bravh = { module = "io.github.cymchad:BaseRecyclerViewAdapterHelper4", version = "4.3.2" }
-kaml = { module = "com.charleskorn.kaml:kaml", version = "0.104.0" }
 timber = { module = "com.jakewharton.timber:timber", version = "5.0.1" }
 xxpermissions = { module = "com.github.getActivity:XXPermissions", version = "18.5" }
 iconics-core = { module = "com.mikepenz:iconics-core", version.ref = "iconics" }
 community-material-typeface = { module = "com.mikepenz:community-material-typeface", version = "7.0.96.1-kotlin" }
 kodein-di = { module = "org.kodein.di:kodein-di", version = "7.30.0" }
+snakeyaml = { module = "org.yaml:snakeyaml", version = "2.6" }
 splitties-bitflags = { module = "com.louiscad.splitties:splitties-bitflags", version.ref = "splitties" }
 splitties-systemservices = { module = "com.louiscad.splitties:splitties-systemservices", version.ref = "splitties" }
 splitties-views-dsl = { module = "com.louiscad.splitties:splitties-views-dsl", version.ref = "splitties" }

@@ -37,6 +37,7 @@
     <string name="key_long_press_timeout">長按按鍵的延遲時間</string>
     <string name="key_repeat_interval">重複按鍵的重複間隔</string>
     <string name="popup_on_key_press">按鍵時彈出顯示字符</string>
+    <string name="expand_keypress_area_to_edge">將按鍵範圍擴展至邊緣</string>
     <string name="use_soft_cursor">預編輯區使用插入符號（^）</string>
     <string name="deploy">部署</string>
     <string name="sync_user_data_immediately">立即同步使用者資料</string>
@@ -92,6 +93,24 @@
     <string name="quick_bar">快捷欄</string>
     <string name="copy_done">已複製</string>
     <string name="hook_shift_space">點擊空格時，忽略Shift的鎖定狀態</string>
+    <string name="test_input">在此測試輸入</string>
+    <string name="input_type_text">文字</string>
+    <string name="input_type_number">數字</string>
+    <string name="input_type_phone">電話</string>
+    <string name="input_type_email">郵箱</string>
+    <string name="input_type_url">網址</string>
+    <string name="input_type_password">密碼</string>
+    <string name="test_input_number">輸入數字</string>
+    <string name="test_input_phone">輸入電話號碼</string>
+    <string name="test_input_email">輸入郵箱地址</string>
+    <string name="test_input_url">輸入網址</string>
+    <string name="test_input_password">輸入密碼</string>
+    <string name="test_input_panel_title">測試輸入</string>
+    <string name="show_test_input">顯示測試輸入</string>
+    <string name="hide_test_input">隱藏測試輸入</string>
+    <string name="hide_test_input_confirm">隱藏測試輸入面板？您可以從工具列恢復。</string>
+    <string name="collapse_test_input">收起測試輸入</string>
+    <string name="expand_test_input">展開測試輸入</string>
     <string name="hook_shift_num">點擊0-9時，忽略Shift的鎖定狀態</string>
     <string name="hook_shift_symbol">點擊符號鍵時，忽略Shift的鎖定狀態</string>
     <string name="hook_shift_arrow">點選方向鍵時，保持Shift的鎖定狀態</string>
@@ -229,4 +248,7 @@
     <string name="no_voice_input_installed">尚未安裝語音輸入</string>
     <string name="inline_suggestions">顯示內嵌自動填充建議</string>
     <string name="update_config">更新配置</string>
+    <string name="share">分享</string>
+    <string name="word_segment">分词</string>
+    <string name="star_success">收藏成功</string>
 </resources>

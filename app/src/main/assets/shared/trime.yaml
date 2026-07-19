@@ -13,7 +13,7 @@ style:
   auto_caps: false #自動句首大寫:true|false
   candidate_font: han.ttf #候選字型
   candidate_padding: 5 #候選項內邊距
-  candidate_spacing: 0.5 #候選間距
+  candidate_spacing: 0.0 #候选分割线
   candidate_text_size: 22 #候選字號
   candidate_text_vertical_bias: 1.0 #候选文本垂直偏移位置（仅 overlay 模式使用，需要间隙空间足够，范围 0.0~1.0，0.0=top，0.5=center，1.0=bottom）
   candidate_view_height: 28 #候選區高度
@@ -45,7 +45,7 @@ style:
   preview_height: 60 #按鍵提示高度
   preview_offset: -12 #按鍵提示縱向偏移
   preview_text_size: 40 #按鍵提示字號
-  reset_ascii_mode: false #顯示鍵盤時重置爲中文狀態
+  reset_ascii_mode_on_focus_change: false #焦点变更弹起输入法软键盘时，重置 ascii_mode
   round_corner: 8 #按鍵圓角半徑
   shadow_radius: 0.0 #按鍵陰影半徑
   symbol_font: symbol.ttf #符號字型
@@ -79,6 +79,8 @@ window:               # 候选窗口（悬浮窗）参数
     horizontal: 4         # 横向内边距（整数）
 #  min_width: 0          # 最小宽度（整数）
 #  corner_radius: 0      # 圆角半径（浮点）
+#  border: 0             # 边框宽度（整数）
+#  shadow: 0.0           # 阴影半径（浮点）
 #  alpha: 1              # 透明度（0-1，浮点）
   foreground:           # 前景样式
     label_font_size: 20   # 序号字体大小（浮点）

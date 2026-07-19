@@ -5,6 +5,7 @@
 
 package com.osfans.trime.ime.keyboard
 
+import android.content.Context
 import android.graphics.Point
 import android.os.Build
 import android.view.KeyEvent
@@ -13,7 +14,6 @@ import com.osfans.trime.data.prefs.AppPrefs
 import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.model.TextKeyboard
 import com.osfans.trime.ime.keyboard.KeyboardPrefs.isLandscapeMode
-import com.osfans.trime.util.appContext
 import splitties.bitflags.hasFlag
 import splitties.dimensions.dp
 import splitties.systemservices.windowManager
@@ -23,6 +23,7 @@ import kotlin.math.pow
 /** 從YAML中加載鍵盤配置，包含多個[按鍵][Key]。  */
 @Suppress("ktlint:standard:property-naming")
 class Keyboard(
+    private val context: Context,
     private val theme: Theme,
     selfConfig: TextKeyboard? = null,
 ) {
@@ -32,7 +33,7 @@ class Keyboard(
         intArrayOf(
             selfConfig?.horizontalGap ?: 0,
             theme.generalStyle.horizontalGap,
-        ).firstOrNull { it > 0 }?.let { appContext.dp(it) } ?: 0
+        ).firstOrNull { it > 0 }?.let { context.dp(it) } ?: 0
 
     /** 默認鍵寬  */
     private val keyWidth: Int = (allowedWidth * theme.generalStyle.keyWidth / 100).toInt()
@@ -49,7 +50,7 @@ class Keyboard(
         intArrayOf(
             selfConfig?.verticalGap ?: 0,
             theme.generalStyle.verticalGap,
-        ).firstOrNull { it > 0 }?.let { appContext.dp(it) } ?: 0
+        ).firstOrNull { it > 0 }?.let { context.dp(it) } ?: 0
 
     /** 默認按鍵圓角半徑  */
     val roundCorner: Float =
@@ -93,23 +94,30 @@ class Keyboard(
     private val allowedWidth: Int
         get() {
             val padding = theme.generalStyle.run {
-                if (appContext.isLandscapeMode()) keyboardPaddingLand else keyboardPadding
+                if (context.isLandscapeMode()) keyboardPaddingLand else keyboardPadding
             }
 
             val safeWidth = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val windowMetrics = appContext.windowManager.currentWindowMetrics
+                val windowMetrics = context.windowManager.maximumWindowMetrics
                 val insets = windowMetrics.windowInsets.getInsetsIgnoringVisibility(
                     WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
                 )
-                windowMetrics.bounds.width() - insets.left - insets.right
+                val displayWidth = context.resources.displayMetrics.widthPixels
+                val windowWidth = windowMetrics.bounds.width() - insets.left - insets.right
+                val isPortrait = displayWidth < context.resources.displayMetrics.heightPixels
+                if (isPortrait && windowWidth < displayWidth - context.dp(1)) {
+                    displayWidth
+                } else {
+                    windowWidth
+                }
             } else {
                 @Suppress("DEPRECATION")
                 val size = Point()
                 @Suppress("DEPRECATION")
-                appContext.windowManager.defaultDisplay.getSize(size)
+                context.windowManager.defaultDisplay.getSize(size)
                 size.x
             }
-            return safeWidth - 2 * appContext.dp(padding)
+            return safeWidth - 2 * context.dp(padding)
         }
 
     /** Keyboard default ascii mode  */
@@ -142,6 +150,8 @@ class Keyboard(
             getKeyboardHeightFromTheme(theme),
         ).firstOrNull { it > 0 } ?: 0
 
+    private val expandKeypressArea: Boolean by AppPrefs.defaultInstance().keyboard.expandKeypressArea
+
     init {
 
         if (selfConfig != null) {
@@ -159,7 +169,7 @@ class Keyboard(
 
             val maxColumns = if (selfConfig.columns == -1) Int.MAX_VALUE else selfConfig.columns
 
-            val isSplit = appContext.isLandscapeMode() && landscapePercent > 0
+            val isSplit = context.isLandscapeMode() && landscapePercent > 0
             val splitRatio = if (isSplit) landscapePercent / 100f else 0f
 
             val oneWeightWidthPx =
@@ -244,6 +254,8 @@ class Keyboard(
 
             minWidth = 0
 
+            val spacers = mutableListOf<Triple<Int, Int, Int>>()
+
             // create Key objects, assign position, size, offsets
             for (textKey in keys) {
 
@@ -276,12 +288,13 @@ class Keyboard(
                     if (keyWidthWeight > 20f) {
                         widthPx += gap
                     } else {
+                        if (expandKeypressArea) spacers.add(Triple(xPos, gap, row))
                         xPos += gap
                     }
                 }
 
-                // spacer keys only move the cursor; no Key object is created
                 if (textKey.click.isEmpty()) {
+                    if (expandKeypressArea) spacers.add(Triple(xPos, widthPx, row))
                     xPos += widthPx
                     continue
                 }
@@ -318,6 +331,23 @@ class Keyboard(
                 }
             }
 
+            // Expand keypress area to edge by distributing spacer widths to neighbors
+            if (expandKeypressArea && spacers.isNotEmpty()) {
+                for ((spacerX, spacerWidth, spacerRow) in spacers) {
+                    val (leftKeys, rightKeys) = mKeys.filter { it.row == spacerRow }.partition { it.x + it.width <= spacerX }
+                    val leftKey = leftKeys.maxByOrNull { it.x }
+                    val rightKey = rightKeys.minByOrNull { it.x }
+                    when {
+                        leftKey != null && rightKey != null -> {
+                            leftKey.extraWidthRight += spacerWidth / 2
+                            rightKey.extraWidthLeft += spacerWidth - spacerWidth / 2
+                        }
+                        leftKey != null -> leftKey.extraWidthRight += spacerWidth
+                        rightKey != null -> rightKey.extraWidthLeft += spacerWidth
+                    }
+                }
+            }
+
             mKeys.lastOrNull()?.edgeFlags = mKeys.lastOrNull()?.edgeFlags?.or(EDGE_RIGHT) ?: 0
 
             height = yPos + currentRowHeight
@@ -333,20 +363,20 @@ class Keyboard(
 
     private fun getKeyboardHeightFromTheme(theme: Theme): Int {
         var keyboardHeight = theme.generalStyle.keyboardHeight
-        if (appContext.isLandscapeMode()) {
+        if (context.isLandscapeMode()) {
             val keyboardHeightLand = theme.generalStyle.keyboardHeightLand
             if (keyboardHeightLand > 0) keyboardHeight = keyboardHeightLand
         }
-        return appContext.dp(keyboardHeight)
+        return context.dp(keyboardHeight)
     }
 
     private fun getKeyboardHeightFromKeyboardConfig(textKeyboard: TextKeyboard): Int {
         var keyboardHeight = textKeyboard.keyboardHeight
-        if (appContext.isLandscapeMode()) {
+        if (context.isLandscapeMode()) {
             val keyboardHeightLand = textKeyboard.keyboardHeightLand
             if (keyboardHeightLand > 0) keyboardHeight = keyboardHeightLand
         }
-        return appContext.dp(keyboardHeight)
+        return context.dp(keyboardHeight)
     }
 
     fun setModifierKey(

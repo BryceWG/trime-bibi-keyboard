@@ -12,7 +12,6 @@ import android.graphics.Color
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import androidx.core.graphics.ColorUtils as AndroidColorUtils
 import androidx.core.view.children
 import androidx.transition.Slide
 import androidx.transition.TransitionManager
@@ -27,6 +26,7 @@ import com.osfans.trime.ime.voice.WaveformView
 import com.osfans.trime.link.AsrkbSpeechClient
 import com.osfans.trime.link.VoiceOverlayUiBridge
 import timber.log.Timber
+import androidx.core.graphics.ColorUtils as AndroidColorUtils
 
 // TODO: move layout calculation responsibilities from Keyboard to KeyboardView using ConstraintLayout
 @SuppressLint("ViewConstructor")
@@ -66,28 +66,28 @@ class KeyboardView(
         }
     }
 
-    private fun createKeyView(index: Int, key: Key): KeyView =
-        KeyView(
-            context,
-            key = key,
-            keyboard = keyboard,
-            keyboardView = this,
-            keyboardActionListener = keyboardActionListener,
-        ).apply {
-            id = index
+    private fun createKeyView(index: Int, key: Key): KeyView = KeyView(
+        context,
+        key = key,
+        keyboard = keyboard,
+        keyboardView = this,
+        keyboardActionListener = keyboardActionListener,
+    ).apply {
+        id = index
 
-            layoutParams = LayoutParams(key.width, key.height)
+        val totalWidth = key.width + key.extraWidthLeft + key.extraWidthRight
+        layoutParams = LayoutParams(totalWidth, key.height)
 
-            translationX = key.x.toFloat()
-            translationY = key.y.toFloat()
+        translationX = (key.x - key.extraWidthLeft).toFloat()
+        translationY = key.y.toFloat()
 
-            setPadding(
-                keyboard.horizontalGap / 2,
-                keyboard.verticalGap / 2,
-                keyboard.horizontalGap / 2,
-                keyboard.verticalGap / 2,
-            )
-        }
+        setPadding(
+            keyboard.horizontalGap / 2 + key.extraWidthLeft,
+            keyboard.verticalGap / 2,
+            keyboard.horizontalGap / 2 + key.extraWidthRight,
+            keyboard.verticalGap / 2,
+        )
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val fullWidth = keyboard.minWidth + paddingLeft + paddingRight
