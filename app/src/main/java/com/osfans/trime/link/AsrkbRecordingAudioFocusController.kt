@@ -118,6 +118,31 @@ internal class AsrkbRecordingAudioFocusController internal constructor(
     }
 }
 
+/** Serializes the audio-focus lease ownership of the current ASRKB session. */
+internal class AsrkbRecordingAudioFocusSessionOwner {
+    private val lock = Any()
+    private var activeController: AsrkbRecordingAudioFocusController? = null
+
+    fun acquire(controller: AsrkbRecordingAudioFocusController): Boolean = synchronized(lock) {
+        if (activeController != null || !controller.acquire()) return@synchronized false
+        activeController = controller
+        true
+    }
+
+    fun release() {
+        val controller = synchronized(lock) {
+            val current = activeController
+            activeController = null
+            current
+        }
+        controller?.release()
+    }
+
+    fun owns(controller: AsrkbRecordingAudioFocusController): Boolean = synchronized(lock) {
+        activeController === controller
+    }
+}
+
 private class AndroidAsrkbRecordingAudioFocusGateway(
     context: Context,
 ) : AsrkbRecordingAudioFocusGateway {

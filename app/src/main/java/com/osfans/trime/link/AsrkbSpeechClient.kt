@@ -51,7 +51,7 @@ object AsrkbSpeechClient {
     private var ctxRef: TrimeInputMethodService? = null
     private var audioJob: Job? = null
     private var audioRecord: AudioRecord? = null
-    private var recordingAudioFocusController: AsrkbRecordingAudioFocusController? = null
+    private val recordingAudioFocusOwner = AsrkbRecordingAudioFocusSessionOwner()
     private var hasPcmFrame: Boolean = false
 
     fun startHoldSession(service: TrimeInputMethodService) {
@@ -229,6 +229,11 @@ object AsrkbSpeechClient {
     }
 
     fun isHolding(): Boolean = holding
+
+    internal fun onServiceDestroyed(service: TrimeInputMethodService) {
+        if (ctxRef !== service) return
+        unbind()
+    }
 
     private fun cancelAndUnbind() {
         cancelSession()
@@ -477,9 +482,7 @@ object AsrkbSpeechClient {
             audioRecord = null
         }
 
-        val focusController = recordingAudioFocusController
-        recordingAudioFocusController = null
-        focusController?.release()
+        recordingAudioFocusOwner.release()
     }
 
     private fun acquireRecordingAudioFocusIfEnabled(service: TrimeInputMethodService) {
@@ -491,16 +494,17 @@ object AsrkbSpeechClient {
         }
 
         val executor = ContextCompat.getMainExecutor(service)
-        val controller =
+        lateinit var controller: AsrkbRecordingAudioFocusController
+        controller =
             AsrkbRecordingAudioFocusController(service) { loss ->
                 Timber.w("ASRKB recording audio focus lost: $loss")
                 executor.execute {
-                    if (holding) stopHoldSession()
+                    if (recordingAudioFocusOwner.owns(controller) && holding) {
+                        stopHoldSession()
+                    }
                 }
             }
-        recordingAudioFocusController = controller
-        if (!controller.acquire()) {
-            recordingAudioFocusController = null
+        if (!recordingAudioFocusOwner.acquire(controller)) {
             Timber.w("ASRKB recording continues without audio focus")
         }
     }
