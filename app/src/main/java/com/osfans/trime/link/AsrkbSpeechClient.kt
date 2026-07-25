@@ -16,6 +16,9 @@ import android.media.MediaRecorder
 import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
+import android.os.SystemClock
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.EditorInfo
 import androidx.lifecycle.lifecycleScope
 import androidx.core.content.ContextCompat
 import com.osfans.trime.R
@@ -26,6 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import kotlin.math.max
 
@@ -53,20 +57,37 @@ object AsrkbSpeechClient {
     private var audioRecord: AudioRecord? = null
     private val recordingAudioFocusOwner = AsrkbRecordingAudioFocusSessionOwner()
     private var hasPcmFrame: Boolean = false
+    private val editorGeneration = AsrkbEditorGenerationTracker()
+    private var sessionEditorGeneration: Long = 0L
+    private var editorInputType: Int = 0
+    private var editorImeOptions: Int = 0
+    private var targetInputConnection: InputConnection? = null
+    private var initialInputContext: AsrkbCursorSnapshot? = null
+    private var correctionReportingEnabled: Boolean = false
+    private val correctionTracker = AsrkbCorrectionTracker()
+    private var correctionJob: Job? = null
+    private var editorEventJob: Job? = null
+    private var negotiationJob: Job? = null
+    private val negotiationGate = AsrkbNegotiationGate()
 
     fun startHoldSession(service: TrimeInputMethodService) {
         if (bound && remote != null && sessionId > 0) {
             if (!holding) {
                 Timber.w("Reset stale session before starting new hold (state=$currentState)")
+                val report = takeCorrectionReport("next_session")
+                if (report != null && dispatchEditReport(report) { startHoldSession(service) }) return
                 unbind(clearUi = false)
             } else {
                 return
             }
         }
 
+        cancelNegotiation()
         ctxRef = service
         holding = true
         hasPcmFrame = false
+        sessionEditorGeneration = editorGeneration.currentGeneration
+        prepareInputTarget(service)
 
         val conn =
             object : ServiceConnection {
@@ -112,11 +133,11 @@ object AsrkbSpeechClient {
                                             }
                                             CB_onFinal -> {
                                                 data.enforceInterface(DESCRIPTOR_CB)
-                                                data.readInt()
+                                                val callbackSessionId = data.readInt()
                                                 val text = data.readString() ?: ""
                                                 ctx.lifecycleScope.launch {
                                                     ctx.commitText(text)
-                                                    unbind()
+                                                    startCorrectionObservation(ctx, callbackSessionId, text)
                                                 }
                                                 reply?.writeNoException()
                                                 true
@@ -183,7 +204,37 @@ object AsrkbSpeechClient {
                         } else {
                             sessionId = sid
                             currentState = STATE_RECORDING
-                            startAudioStreaming(ctx)
+                            val generation = sessionEditorGeneration
+                            val inputConnection = targetInputConnection
+                            val inputType = editorInputType
+                            val imeOptions = editorImeOptions
+                            val token = negotiationGate.begin(sid, generation, inputConnection)
+                            negotiationJob = ctx.lifecycleScope.launch {
+                                var negotiatedContext: AsrkbCursorSnapshot? = null
+                                val correctionEnabled = negotiateOptionalInputThenContinue(
+                                    queryRequirements = {
+                                        withContext(Dispatchers.IO) { queryInputRequirements(b, sid) }
+                                    },
+                                    attachInputContext = { requirements ->
+                                        withContext(Dispatchers.IO) {
+                                            attachInputContextIfRequested(
+                                                binder = b,
+                                                token = token,
+                                                requirements = requirements,
+                                                inputType = inputType,
+                                                imeOptions = imeOptions
+                                            )?.also { negotiatedContext = it } != null
+                                        }
+                                    },
+                                    continueOriginalAsr = {
+                                        if (negotiationGate.isCurrent(token)) startAudioStreaming(ctx)
+                                    }
+                                )
+                                if (negotiationGate.isCurrent(token)) {
+                                    initialInputContext = negotiatedContext
+                                    correctionReportingEnabled = correctionEnabled
+                                }
+                            }
                         }
                     } catch (t: Throwable) {
                         Timber.w(t, "bind/start failed")
@@ -246,6 +297,12 @@ object AsrkbSpeechClient {
             VoiceOverlayUiBridge.clear()
         }
         callbackBinder = null
+        cancelNegotiation()
+        correctionJob?.cancel()
+        correctionJob = null
+        editorEventJob?.cancel()
+        editorEventJob = null
+        correctionTracker.cancel()
         val ctx = ctxRef
         stopAudioStreaming()
 
@@ -266,6 +323,9 @@ object AsrkbSpeechClient {
         holding = false
         ctxRef = null
         hasPcmFrame = false
+        correctionReportingEnabled = false
+        targetInputConnection = null
+        initialInputContext = null
     }
 
     private fun finishPcmSession() {
@@ -326,6 +386,271 @@ object AsrkbSpeechClient {
             } catch (t: Throwable) {
                 Timber.w(t, "reply.recycle failed")
             }
+        }
+    }
+
+    private fun prepareInputTarget(service: TrimeInputMethodService) {
+        correctionReportingEnabled = false
+        correctionTracker.cancel()
+        correctionJob?.cancel()
+        correctionJob = null
+        val info = service.currentInputEditorInfo
+        editorInputType = info.inputType
+        editorImeOptions = info.imeOptions
+        if (sessionEditorGeneration <= 0L ||
+            !AsrkbEditorPrivacy.isEligible(editorInputType, editorImeOptions)
+        ) {
+            targetInputConnection = null
+            initialInputContext = null
+            return
+        }
+        targetInputConnection = service.currentInputConnection
+        initialInputContext = null
+    }
+
+    private fun queryInputRequirements(binder: IBinder, sid: Int): Int? {
+        return optionalTransactionInt(binder, TRANSACTION_getInputRequirements) { data ->
+            data.writeInt(sid)
+        }
+    }
+
+    private fun attachInputContextIfRequested(
+        binder: IBinder,
+        token: AsrkbNegotiationToken,
+        requirements: Int,
+        inputType: Int,
+        imeOptions: Int
+    ): AsrkbCursorSnapshot? {
+        if (requirements == 0 || !negotiationGate.isCurrent(token)) return null
+        val connection = token.connection as? InputConnection ?: return null
+        val inputContext = captureInputContext(connection) ?: return null
+        if (!negotiationGate.isCurrent(token)) return null
+        val attached = optionalTransactionInt(binder, TRANSACTION_setInputContext) { data ->
+            data.writeInt(token.sessionId)
+            data.writeLong(token.generation)
+            data.writeInt(inputType)
+            data.writeInt(imeOptions)
+            data.writeString(inputContext.beforeCursor)
+            data.writeString(inputContext.afterCursor)
+        } == 1
+        return inputContext.takeIf { attached }
+    }
+
+    private fun startCorrectionObservation(
+        service: TrimeInputMethodService,
+        callbackSessionId: Int,
+        finalText: String
+    ) {
+        stopAudioStreaming()
+        runCatching { VoiceOverlayUiBridge.onDone?.invoke() }
+        VoiceOverlayUiBridge.clear()
+        holding = false
+        currentState = STATE_IDLE
+        val connection = targetInputConnection
+        val initial = initialInputContext
+        if (!correctionReportingEnabled || callbackSessionId != sessionId || connection == null || initial == null) {
+            unbind(clearUi = false)
+            return
+        }
+
+        correctionJob = service.lifecycleScope.launch {
+            delay(COMMIT_VERIFY_DELAY_MS)
+            if (service.currentInputConnection !== connection ||
+                editorGeneration.currentGeneration != sessionEditorGeneration
+            ) {
+                unbind(clearUi = false)
+                return@launch
+            }
+            val committed = withContext(Dispatchers.IO) { captureInputContext(connection) }
+            if (committed == null || !correctionTracker.start(
+                    sessionId = callbackSessionId,
+                    generation = sessionEditorGeneration,
+                    initial = initial,
+                    finalText = finalText,
+                    committed = committed,
+                    nowMs = SystemClock.uptimeMillis()
+                )
+            ) {
+                unbind(clearUi = false)
+                return@launch
+            }
+
+            while (true) {
+                delay(CORRECTION_POLL_MS)
+                if (ctxRef !== service ||
+                    service.currentInputConnection !== connection ||
+                    editorGeneration.currentGeneration != sessionEditorGeneration
+                ) {
+                    val report = correctionTracker.finishLast(sessionEditorGeneration, "finish_input")
+                    if (report != null && dispatchEditReport(report)) return@launch
+                    unbind(clearUi = false)
+                    return@launch
+                }
+                val snapshot = withContext(Dispatchers.IO) { captureInputContext(connection) }
+                if (snapshot == null) {
+                    val report = correctionTracker.finishLast(sessionEditorGeneration, "finish_input")
+                    if (report != null && dispatchEditReport(report)) return@launch
+                    unbind(clearUi = false)
+                    return@launch
+                }
+                val report = correctionTracker.update(
+                    generation = sessionEditorGeneration,
+                    snapshot = snapshot,
+                    nowMs = SystemClock.uptimeMillis()
+                ) ?: continue
+                if (!dispatchEditReport(report)) unbind(clearUi = false)
+                return@launch
+            }
+        }
+    }
+
+    private fun takeCorrectionReport(reason: String): AsrkbCorrectionReport? {
+        if (!correctionReportingEnabled) return null
+        val snapshot = targetInputConnection?.let(::captureInputContext)
+        return if (snapshot != null) {
+            correctionTracker.finish(sessionEditorGeneration, snapshot, reason)
+        } else {
+            correctionTracker.finishLast(sessionEditorGeneration, reason)
+        }
+    }
+
+    internal fun onStartInput(
+        info: EditorInfo,
+        restarting: Boolean
+    ) {
+        val previous = editorGeneration.currentGeneration
+        val current = editorGeneration.onStartInput(info.asAsrkbEditorIdentity(), restarting)
+        if (current == previous) return
+        if (bound) {
+            val report = takeCorrectionReport("next_session")
+            if (report != null && dispatchEditReport(report)) return
+            cancelAndUnbind()
+            return
+        }
+        cancelNegotiation()
+        correctionTracker.cancel()
+        correctionJob?.cancel()
+        editorEventJob?.cancel()
+        correctionReportingEnabled = false
+        targetInputConnection = null
+        initialInputContext = null
+    }
+
+    internal fun onFinishInput() {
+        val report = takeCorrectionReport("finish_input")
+        val dispatched = report?.let(::dispatchEditReport) == true
+        cancelNegotiation()
+        editorGeneration.onFinishInput()
+        correctionTracker.cancel()
+        correctionJob?.cancel()
+        editorEventJob?.cancel()
+        if (!dispatched && !holding && bound) unbind(clearUi = false)
+    }
+
+    internal fun onEditorAction() {
+        val report = takeCorrectionReport("editor_action") ?: return
+        if (!dispatchEditReport(report)) unbind(clearUi = false)
+    }
+
+    internal fun onEditorEvent(service: TrimeInputMethodService) {
+        if (!correctionTracker.isActive() ||
+            editorGeneration.currentGeneration != sessionEditorGeneration
+        ) {
+            return
+        }
+        val connection = targetInputConnection ?: return
+        val generation = sessionEditorGeneration
+        val binder = remote ?: return
+        if (service.currentInputConnection !== connection) return
+        editorEventJob?.cancel()
+        editorEventJob = service.lifecycleScope.launch(Dispatchers.IO) {
+            val snapshot = captureInputContext(connection) ?: return@launch
+            val report = correctionTracker.update(
+                generation = generation,
+                snapshot = snapshot,
+                nowMs = SystemClock.uptimeMillis()
+            ) ?: return@launch
+            reportEdit(binder, report)
+            withContext(Dispatchers.Main) { unbind(clearUi = false) }
+        }
+    }
+
+    private fun dispatchEditReport(
+        report: AsrkbCorrectionReport,
+        afterUnbind: () -> Unit = {}
+    ): Boolean {
+        val binder = remote ?: return false
+        val scope = ctxRef?.lifecycleScope ?: return false
+        launchAsrkbEditReport(
+            scope = scope,
+            report = report,
+            submit = { reportEdit(binder, it) },
+            onComplete = {
+                scope.launch(Dispatchers.Main) {
+                    if (remote === binder) unbind(clearUi = false)
+                    afterUnbind()
+                }
+            }
+        )
+        return true
+    }
+
+    private fun reportEdit(binder: IBinder, report: AsrkbCorrectionReport) {
+        val result = optionalTransactionInt(binder, TRANSACTION_reportEdit) { data ->
+            data.writeInt(report.sessionId)
+            data.writeLong(report.generation)
+            data.writeString(report.snapshot.beforeCursor)
+            data.writeString(report.snapshot.afterCursor)
+            data.writeString(report.reason)
+        }
+        if (result != 1) Timber.w("Correction report rejected: reason=${report.reason}, result=$result")
+    }
+
+    private fun cancelNegotiation() {
+        negotiationGate.invalidate()
+        negotiationJob?.cancel()
+        negotiationJob = null
+    }
+
+    private fun EditorInfo.asAsrkbEditorIdentity() = AsrkbEditorIdentity(
+        packageName = packageName.orEmpty(),
+        fieldId = fieldId,
+        inputType = inputType,
+        imeOptions = imeOptions
+    )
+
+    private fun captureInputContext(connection: InputConnection): AsrkbCursorSnapshot? {
+        return try {
+            val before = connection.getTextBeforeCursor(AsrkbCursorSnapshot.MAX_CONTEXT_CHARS, 0)
+                ?.toString() ?: return null
+            val after = connection.getTextAfterCursor(AsrkbCursorSnapshot.MAX_CONTEXT_CHARS, 0)
+                ?.toString() ?: return null
+            AsrkbCursorSnapshot(before, after).bounded()
+        } catch (t: Throwable) {
+            Timber.d(t, "Input context unavailable")
+            null
+        }
+    }
+
+    private inline fun optionalTransactionInt(
+        binder: IBinder,
+        code: Int,
+        fill: (Parcel) -> Unit
+    ): Int? {
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        return try {
+            data.writeInterfaceToken(DESCRIPTOR_SVC)
+            fill(data)
+            if (!binder.transact(code, data, reply, 0)) return null
+            reply.readException()
+            reply.readInt()
+        } catch (t: Throwable) {
+            Timber.d(t, "Optional ASRKB transaction unsupported (code=$code)")
+            null
+        } finally {
+            data.recycle()
+            reply.recycle()
         }
     }
 
@@ -578,6 +903,12 @@ object AsrkbSpeechClient {
     private const val TRANSACTION_startPcmSession = IBinder.FIRST_CALL_TRANSACTION + 6
     private const val TRANSACTION_writePcm = IBinder.FIRST_CALL_TRANSACTION + 7
     private const val TRANSACTION_finishPcm = IBinder.FIRST_CALL_TRANSACTION + 8
+    private const val TRANSACTION_getInputRequirements = IBinder.FIRST_CALL_TRANSACTION + 9
+    private const val TRANSACTION_setInputContext = IBinder.FIRST_CALL_TRANSACTION + 10
+    private const val TRANSACTION_reportEdit = IBinder.FIRST_CALL_TRANSACTION + 11
+
+    private const val COMMIT_VERIFY_DELAY_MS = 40L
+    private const val CORRECTION_POLL_MS = 1_000L
 
     private const val DESCRIPTOR_CB = "com.brycewg.asrkb.aidl.ISpeechCallback"
     private const val CB_onState = IBinder.FIRST_CALL_TRANSACTION + 0

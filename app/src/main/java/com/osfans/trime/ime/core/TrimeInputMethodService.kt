@@ -314,6 +314,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                 return
             }
             if (!actionLabel.isNullOrEmpty() && actionId != EditorInfo.IME_ACTION_UNSPECIFIED) {
+                AsrkbSpeechClient.onEditorAction()
                 currentInputConnection.performEditorAction(actionId)
                 return
             }
@@ -322,7 +323,10 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
                 EditorInfo.IME_ACTION_NONE,
                 -> sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
 
-                else -> currentInputConnection.performEditorAction(action)
+                else -> {
+                    AsrkbSpeechClient.onEditorAction()
+                    currentInputConnection.performEditorAction(action)
+                }
             }
         }
     }
@@ -430,6 +434,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         cursorUpdateIndex += 1
         handleCursorUpdate(newSelStart, newSelEnd, candidatesStart, candidatesEnd, cursorUpdateIndex)
         inputView?.updateSelection(newSelStart, newSelEnd)
+        AsrkbSpeechClient.onEditorEvent(this)
     }
 
     private fun handleCursorUpdate(
@@ -515,6 +520,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         attribute: EditorInfo,
         restarting: Boolean,
     ) {
+        AsrkbSpeechClient.onStartInput(attribute, restarting)
         composingText = ""
         Timber.d("onStartInput: restarting=$restarting")
         val isNullType = attribute.inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL
@@ -578,6 +584,11 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
             clearComposition()
         }
         InputFeedbackManager.finishInput()
+    }
+
+    override fun onFinishInput() {
+        AsrkbSpeechClient.onFinishInput()
+        super.onFinishInput()
     }
 
     fun commitText(text: String) {
