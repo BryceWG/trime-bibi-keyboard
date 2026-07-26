@@ -237,6 +237,18 @@
     <string name="asrkb_duck_media_on_record_summary">While BiBi Keyboard voice input is recording, ask other apps to temporarily lower their volume or pause. The result depends on the system and the media app.</string>
     <string name="asrkb_aidl_voice_toolbar_button">Toolbar mic button</string>
     <string name="asrkb_aidl_voice_toolbar_button_summary">Show a mic button on the toolbar. Tap to start recording, tap again to stop and commit. If the setting does not take effect immediately after toggling the switch, switch to another theme in the keyboard style settings and then switch back to refresh the UI.</string>
+    <string name="asrkb_clipboard_sync_enabled">Enable BiBi Keyboard clipboard sync</string>
+    <string name="asrkb_clipboard_sync_enabled_summary">Connect to BiBi Keyboard while this IME is active and use its SyncClipboard configuration. Clipboard sync must also be enabled in BiBi Keyboard.</string>
+    <string name="asrkb_clipboard_sync_disabled_notice">Clipboard changes from this IME will no longer sync with BiBi Keyboard.</string>
+    <string name="asrkb_clipboard_sync_status">Connection status</string>
+    <string name="asrkb_clipboard_sync_status_stopped">IME service is not running. Open the keyboard to connect.</string>
+    <string name="asrkb_clipboard_sync_status_disabled">Disabled</string>
+    <string name="asrkb_clipboard_sync_status_waiting">Waiting for the keyboard window</string>
+    <string name="asrkb_clipboard_sync_status_connecting">Connecting (Pro first, then open-source)…</string>
+    <string name="asrkb_clipboard_sync_status_reconnecting">Connection lost; reconnecting…</string>
+    <string name="asrkb_clipboard_sync_status_connected">Connected to %1$s; waiting for sync subscription</string>
+    <string name="asrkb_clipboard_sync_status_observing">Connected to %1$s and observing clipboard changes</string>
+    <string name="asrkb_clipboard_sync_status_error">Last connection failed: %1$s. Codes: 0=service unavailable, -1=update BiBi Keyboard, -2=bad request, -3=caller rejected, -4=current IME mismatch, -5=host rejected, -6=sync disabled, -7=bridge unavailable.</string>
     <string name="asrkb_err_service_not_found">BiBi Keyboard service not found (Pro/Open-source)</string>
     <string name="asrkb_err_connect_failed">Failed to connect to BiBi Keyboard service</string>
     <string name="asrkb_err_busy">Voice service is busy. Please try again.</string>

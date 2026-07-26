@@ -50,6 +50,7 @@ import com.osfans.trime.data.theme.Theme
 import com.osfans.trime.data.theme.ThemeManager
 import com.osfans.trime.ime.composition.CandidatesView
 import com.osfans.trime.ime.keyboard.InputFeedbackManager
+import com.osfans.trime.link.AsrkbClipboardSyncBridge
 import com.osfans.trime.link.AsrkbSpeechClient
 import com.osfans.trime.receiver.RimeIntentReceiver
 import com.osfans.trime.util.any
@@ -71,6 +72,7 @@ import timber.log.Timber
 /** [輸入法][InputMethodService]主程序  */
 
 open class TrimeInputMethodService : LifecycleInputMethodService() {
+    private val asrkbClipboardSyncBridge by lazy { AsrkbClipboardSyncBridge(this) }
     private lateinit var rime: RimeSession
     private val jobs = Channel<Job>(capacity = Channel.UNLIMITED)
 
@@ -188,6 +190,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
         InputFeedbackManager.init(this)
         registerReceiver()
         super.onCreate()
+        asrkbClipboardSyncBridge.create()
         Timber.d("onCreate")
         decorView = window.window!!.decorView
         contentView = decorView.findViewById(android.R.id.content)
@@ -292,6 +295,7 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     override fun onDestroy() {
         AsrkbSpeechClient.onServiceDestroyed(this)
+        asrkbClipboardSyncBridge.destroy()
         InputFeedbackManager.destroy()
         inputView = null
         recreateInputViewPrefs.forEach {
@@ -349,8 +353,14 @@ open class TrimeInputMethodService : LifecycleInputMethodService() {
 
     override fun onWindowShown() {
         super.onWindowShown()
+        asrkbClipboardSyncBridge.windowShown()
         // navbar foreground/background color would reset every time window shows
         navBarManager.update(window.window!!)
+    }
+
+    override fun onWindowHidden() {
+        asrkbClipboardSyncBridge.windowHidden()
+        super.onWindowHidden()
     }
 
     private val contentSize = floatArrayOf(0f, 0f)

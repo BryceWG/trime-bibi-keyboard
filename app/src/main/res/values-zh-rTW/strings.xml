@@ -237,6 +237,18 @@
     <string name="asrkb_duck_media_on_record_summary">使用說點啥語音輸入錄音時，要求其他應用程式暫時降低音量或暫停播放。實際效果取決於系統與播放應用程式。</string>
     <string name="asrkb_aidl_voice_toolbar_button">工具列麥克風按鈕</string>
     <string name="asrkb_aidl_voice_toolbar_button_summary">在工具列顯示麥克風按鈕：點按開始錄音，再次點按停止並上屏。開關切換後未立即生效，請在鍵盤樣式中切換到其他主題再切換回來以刷新 UI。</string>
+    <string name="asrkb_clipboard_sync_enabled">啟用說點啥剪貼簿同步</string>
+    <string name="asrkb_clipboard_sync_enabled_summary">本輸入法活動時連線說點啥，並使用本體的 SyncClipboard 設定。還需在說點啥中啟用剪貼簿同步。</string>
+    <string name="asrkb_clipboard_sync_disabled_notice">本輸入法的剪貼簿變更將不再同步至說點啥。</string>
+    <string name="asrkb_clipboard_sync_status">連線狀態</string>
+    <string name="asrkb_clipboard_sync_status_stopped">輸入法服務未執行，請開啟鍵盤後連線。</string>
+    <string name="asrkb_clipboard_sync_status_disabled">未啟用</string>
+    <string name="asrkb_clipboard_sync_status_waiting">正在等待鍵盤視窗顯示</string>
+    <string name="asrkb_clipboard_sync_status_connecting">正在連線（Pro 優先，然後開源版）…</string>
+    <string name="asrkb_clipboard_sync_status_reconnecting">連線已中斷，正在重新連線…</string>
+    <string name="asrkb_clipboard_sync_status_connected">已連線 %1$s，正在等待同步訂閱</string>
+    <string name="asrkb_clipboard_sync_status_observing">已連線 %1$s，正在監聽剪貼簿變化</string>
+    <string name="asrkb_clipboard_sync_status_error">最近一次連線失敗：%1$s。錯誤碼：0=服務不可用，-1=需更新說點啥，-2=請求無效，-3=呼叫方被拒絕，-4=目前輸入法不符，-5=宿主被拒絕，-6=未啟用同步，-7=橋接不可用。</string>
     <string name="asrkb_err_service_not_found">未找到說點啥服務（Pro/開源）</string>
     <string name="asrkb_err_connect_failed">無法連接說點啥服務</string>
     <string name="asrkb_err_busy">語音服務忙碌中，請稍後再試。</string>

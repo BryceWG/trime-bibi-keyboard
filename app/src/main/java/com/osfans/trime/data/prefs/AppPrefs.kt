@@ -15,6 +15,7 @@ import com.osfans.trime.ime.candidates.popup.PopupCandidatesLayout
 import com.osfans.trime.ime.candidates.popup.PopupCandidatesMode
 import com.osfans.trime.ime.composition.PopupPosition
 import com.osfans.trime.ime.core.InlinePreeditMode
+import com.osfans.trime.link.ASRKB_CLIPBOARD_SYNC_ENABLED_KEY
 import com.osfans.trime.util.InputMethodUtils
 import com.osfans.trime.util.appContext
 import java.lang.ref.WeakReference
@@ -447,6 +448,12 @@ class AppPrefs(
             CLIPBOARD_RETURN_AFTER_PASTE,
             true,
         ) { clipboardListening.getValue() }
+        val asrkbClipboardSyncEnabled = switch(
+            R.string.asrkb_clipboard_sync_enabled,
+            ASRKB_CLIPBOARD_SYNC_ENABLED_KEY,
+            false,
+            R.string.asrkb_clipboard_sync_enabled_summary,
+        )
     }
 
     class Advanced(
