@@ -40,6 +40,28 @@ class AsrkbClipboardSyncStateTest : FunSpec({
         statusAfterWindowHidden(failed) shouldBe failed
     }
 
+    test("closing the IME keeps a queued reconnect alive") {
+        val reconnecting = AsrkbClipboardSyncStatus(AsrkbClipboardSyncPhase.RECONNECTING)
+
+        statusAfterWindowHidden(reconnecting) shouldBe reconnecting
+        hasQueuedReconnect(reconnecting.phase) shouldBe true
+        hasQueuedReconnect(AsrkbClipboardSyncPhase.CONNECTING) shouldBe false
+    }
+
+    test("a live local session must be reactivated instead of trusted") {
+        shouldReactivateSession(binderAlive = true, sessionId = "session") shouldBe true
+        shouldReactivateSession(binderAlive = false, sessionId = "session") shouldBe false
+        shouldReactivateSession(binderAlive = true, sessionId = null) shouldBe false
+    }
+
+    test("an enabled bridge reconnects after connection loss") {
+        val reconnecting = phaseAfterConnectionLoss(enabled = true)
+
+        reconnecting shouldBe AsrkbClipboardSyncPhase.RECONNECTING
+        hasQueuedReconnect(reconnecting) shouldBe true
+        phaseAfterConnectionLoss(enabled = false) shouldBe AsrkbClipboardSyncPhase.DISABLED
+    }
+
     test("host requests require the enabled active session") {
         isClipboardHostRequestAuthorized(true, true, "oss", "oss") shouldBe true
         isClipboardHostRequestAuthorized(false, true, "oss", "oss") shouldBe false
